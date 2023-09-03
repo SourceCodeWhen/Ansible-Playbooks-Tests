@@ -1,0 +1,62 @@
+---
+
+- name: Configure webserver with nginx
+  hosts: webservers
+  become: True
+  tasks:
+    - name: install EPEL repo
+      become: yes
+      yum: name=epel-release state=present
+
+    - name: Ensure nginx is installed
+      package: name=nginx update_cache=yes
+
+    - name: Ensure nginx folder is present
+      file:
+        path: /etc/nginx
+        state: directory
+
+    - name: Ensure nginx/sites-available folder is present
+      file:
+        path: /etc/nginx/sites-available
+        state: directory
+
+    - name: Ensure nginx/sites-enabled folder is present
+      file:
+        path: /etc/nginx/sites-enabled
+        state: directory
+
+    - name: Copy nginx config file
+      copy:
+        src: nginx.conf
+        dest: /etc/nginx/sites-available/default
+
+    - name: Enable configuration
+      file: >
+        dest=/etc/nginx/sites-enabled/default
+        src=/etc/nginx/sites-available/default
+        state=link
+
+    - name: Ensure usr/share/nginx/html folder is present
+      file:
+        path: /usr/share/nginx/html
+        state: directory
+
+    - name: Copy index.html
+      template: >
+        src=index.html.j2
+        dest=/usr/share/nginx/html/index.html
+
+    - name: permit traffic in default zone for http service
+      ansible.posix.firewalld:
+        service: http
+        permanent: true
+        state: enabled
+
+    - name: reload service firewalld
+      systemd:
+        name: firewalld
+        state: reloaded
+
+    - name: Restart nginx
+      service: name=nginx state=restarted
